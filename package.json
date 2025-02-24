@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "jest --watchAll",
+    "test": "jest",
+    "test2":"jest --watchAll",
     "lint": "eslint .",
     "preview": "vite preview",
     "cypress": "cypress open",
