@@ -1,34 +1,120 @@
-name: Complete CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - "testing-feature"
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-and-test:
+  quality-check:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Display Commit Information
-        run: |
-          echo "🔍 Commit Information:"
-          echo "Commit SHA: ${{ github.sha }}"
-          echo "Author: ${{ github.actor }}"
-          echo "Event Time: ${{ github.event.head_commit.timestamp }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref }}"
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Linting
+        id: lint
+        run: |
+          npm run lint
+          echo "Lint check completed" >> $GITHUB_STEP_SUMMARY
 
       - name: Run Tests
-        run: npm test -- --watchAll=false
+        id: test
+        run: |
+          npm test
+          echo "Tests completed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate Quality Report
+        run: |
+          echo "## Quality Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Linting: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests: Passed" >> $GITHUB_STEP_SUMMARY
+
+  security:
+    needs: quality-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Security Scan
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+
+      - name: Perform Analysis
+        uses: github/codeql-action/analyze@v2
+
+  build:
+    needs: [quality-check, security]
+    runs-on: ubuntu-latest
+    # Ne s'exécute que sur les PR non-draft
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: dist/
+
+  auto-merge:
+    needs: [build]
+    runs-on: ubuntu-latest
+    # Ne s'exécute que si tous les checks sont passés et qu'il y a au moins une approbation
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.review.state == 'approved'
+    steps:
+      - name: Auto-merge if approved
+        run: |
+          gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: [build]
+    runs-on: ubuntu-latest
+    # Ne s'exécute que quand un merge est fait dans main
+    if: github.event.pull_request.merged == true && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
