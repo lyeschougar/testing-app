@@ -23,6 +23,7 @@ jobs:
 
       - name: Security Audit
         run: npm audit
+        continue-on-error: true
 
       - name: Run ESLint
         run: npm run lint

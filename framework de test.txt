@@ -1,0 +1,18 @@
+For testing :
+
+Lighthouse
+Selenium
+Tets end to end : tester qu ele front appelle bien les services en backend
+
+mocha et chai used for the exercices (and jest.js)
+
+exercice 10 : 
+Create a basic REST endpoint that handle a basic request and return a simple object.
+Valider le statut le contenu et les headers. 
+
+exercice 11 : 
+
+Valdier le statut, le contenu et les headers d'une requtee qui permets d'inscrire un utilisateur en backend. 
+POST / user
+
+Combiner exercice 10 et 11 d'un coup 
