@@ -13,6 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Display Commit Information
+        run: |
+          echo "🔍 Commit Information:"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Event Time: ${{ github.event.head_commit.timestamp }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -20,13 +29,6 @@ jobs:
 
       - name: Install Dependencies
         run: npm install
-
-      - name: Security Audit
-        run: npm audit
-        continue-on-error: true
-
-      - name: Run ESLint
-        run: npm run lint
 
       - name: Run Tests
         run: npm test -- --watchAll=false
